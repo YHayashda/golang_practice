@@ -4,6 +4,10 @@ import (
   "fmt"
   "log"
   "net/http"
+  "encoding/json"
+
+  "database/sql"
+  _ "github.com/go-sql-driver/mysql"
 )
 
 func formHandler(w http.ResponseWriter, r *http.Request) {
@@ -33,11 +37,64 @@ func helloHandler(w http.ResponseWriter, r *http.Request) {
   fmt.Fprintf(w, "Hello!")
 }
 
+type User struct {
+  Id int `json:"id"`
+  Username string `json:"username"`
+  Age int `json:"age"`
+}
+
+func dbConn() (db *sql.DB) {
+  dbDriver := "mysql"
+  dbUser := "db_user"
+  dbPass := "example"
+  dbHost := "tcp(db:3306)"
+  dbName := "sample"
+  db, err := sql.Open(dbDriver, dbUser+":"+dbPass+"@"+dbHost+"/"+dbName)
+  if err != nil {
+    panic(err.Error())
+  }
+  return db
+}
+
+func Index(w http.ResponseWriter, r *http.Request) {
+  db := dbConn()
+  defer db.Close()
+  selDB, err := db.Query("SELECT * FROM users ORDER BY id DESC")
+  if err != nil {
+    panic(err.Error())
+  }
+
+  user := User{}
+  res := []User{}
+  for selDB.Next() {
+    var id, age int
+    var username string
+    err = selDB.Scan(&id, &username, &age)
+    if err != nil {
+      panic(err.Error())
+    }
+
+    user.Id = id
+    user.Username = username
+    user.Age = age
+    res = append(res, user)
+  }
+  s, err := json.Marshal(res)
+  if err != nil {
+    panic(err)
+  }
+  w.Header().Set("Content-Type", "application/json")
+  w.Write(s)
+}
+
 func main() {
+  // todo CRUD操作を書く
+  // todo DBのconfigを環境変数から(ソースコードにベタガキはやめる)
   fileServer := http.FileServer(http.Dir("./static"))
   http.Handle("/", fileServer)
   http.HandleFunc("/form", formHandler)
   http.HandleFunc("/hello", helloHandler)
+  http.HandleFunc("/users", Index)
 
   fmt.Printf("Starting server at port 8080\n")
   if err := http.ListenAndServe(":8080", nil); err != nil {
