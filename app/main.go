@@ -86,6 +86,35 @@ func Index(w http.ResponseWriter, r *http.Request) {
   w.Header().Set("Content-Type", "application/json")
   w.Write(s)
 }
+func Show(w http.ResponseWriter, r *http.Request){
+  db := dbConn()
+  defer db.Close()
+  // todo update to pathparameter, how to get pathparameter :id
+  nId := r.URL.Query().Get("id")
+  selDB, err := db.Query("SELECT * FROM users WHERE id=?",nId)
+  if err != nil {
+    panic(err.Error())
+  }
+  user := User{}
+  for selDB.Next() {
+    var id, age int
+    var username string
+    err = selDB.Scan(&id, &username, &age)
+    if err != nil {
+        panic(err.Error())
+    }
+    user.Id = id
+    user.Username = username
+    user.Age = age
+  }
+
+  s, err := json.Marshal(user)
+  if err != nil {
+    panic(err)
+  }
+  w.Header().Set("Content-Type", "application/json")
+  w.Write(s)
+}
 
 func main() {
   // todo CRUD操作を書く
@@ -95,6 +124,7 @@ func main() {
   http.HandleFunc("/form", formHandler)
   http.HandleFunc("/hello", helloHandler)
   http.HandleFunc("/users", Index)
+  http.HandleFunc("/show", Show)
 
   fmt.Printf("Starting server at port 8080\n")
   if err := http.ListenAndServe(":8080", nil); err != nil {
