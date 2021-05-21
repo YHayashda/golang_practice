@@ -5,6 +5,7 @@ import (
   "log"
   "net/http"
   "encoding/json"
+  "strconv"
 
   "database/sql"
   _ "github.com/go-sql-driver/mysql"
@@ -116,6 +117,23 @@ func Show(w http.ResponseWriter, r *http.Request){
   w.Write(s)
 }
 
+func Store(w http.ResponseWriter, r *http.Request) {
+  db := dbConn()
+  defer db.Close()
+  if r.Method == "POST" {
+    var user User
+    err := json.NewDecoder(r.Body).Decode(&user)
+    insForm, err := db.Prepare("INSERT INTO users(username, age) VALUES(?,?)")
+    if err != nil {
+        panic(err.Error())
+    }
+    insForm.Exec(user.Username, user.Age)
+    log.Println("INSERT: UserName: " + user.Username + " | Age: " + strconv.Itoa(user.Age))
+  }
+  w.Header().Add("Content-Type", "application/json")
+  w.WriteHeader(http.StatusCreated)
+}
+
 func main() {
   // todo CRUD操作を書く
   // todo DBのconfigを環境変数から(ソースコードにベタガキはやめる)
@@ -125,6 +143,7 @@ func main() {
   http.HandleFunc("/hello", helloHandler)
   http.HandleFunc("/users", Index)
   http.HandleFunc("/show", Show)
+  http.HandleFunc("/store", Store)
 
   fmt.Printf("Starting server at port 8080\n")
   if err := http.ListenAndServe(":8080", nil); err != nil {
