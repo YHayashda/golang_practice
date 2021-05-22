@@ -134,6 +134,24 @@ func Store(w http.ResponseWriter, r *http.Request) {
   w.WriteHeader(http.StatusCreated)
 }
 
+func Update(w http.ResponseWriter, r *http.Request) {
+  db := dbConn()
+  defer db.Close()
+  // todo should this be PATCH?
+  if r.Method == "POST" {
+    var user User
+    err := json.NewDecoder(r.Body).Decode(&user)
+    insForm, err := db.Prepare("UPDATE users SET username=?, age=? WHERE id=?")
+    if err != nil {
+        panic(err.Error())
+    }
+    insForm.Exec(user.Username, user.Age, user.Id)
+    log.Println("UPDATE: Username: " + user.Username + " | Age: " + strconv.Itoa(user.Age) + " | Id: " + strconv.Itoa(user.Id))
+  }
+  w.Header().Add("Content-Type", "application/json")
+  w.WriteHeader(http.StatusNoContent)
+}
+
 func main() {
   // todo CRUD操作を書く
   // todo DBのconfigを環境変数から(ソースコードにベタガキはやめる)
@@ -144,6 +162,7 @@ func main() {
   http.HandleFunc("/users", Index)
   http.HandleFunc("/show", Show)
   http.HandleFunc("/store", Store)
+  http.HandleFunc("/update", Update)
 
   fmt.Printf("Starting server at port 8080\n")
   if err := http.ListenAndServe(":8080", nil); err != nil {
