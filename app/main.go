@@ -6,6 +6,7 @@ import (
   "net/http"
   "encoding/json"
   "strconv"
+  "strings"
 
   "database/sql"
   _ "github.com/go-sql-driver/mysql"
@@ -87,34 +88,54 @@ func Index(w http.ResponseWriter, r *http.Request) {
   w.Header().Set("Content-Type", "application/json")
   w.Write(s)
 }
-func Show(w http.ResponseWriter, r *http.Request){
+func UserHandler(w http.ResponseWriter, r *http.Request){
   db := dbConn()
   defer db.Close()
-  // todo update to pathparameter, how to get pathparameter :id
-  nId := r.URL.Query().Get("id")
-  selDB, err := db.Query("SELECT * FROM users WHERE id=?",nId)
-  if err != nil {
-    panic(err.Error())
-  }
-  user := User{}
-  for selDB.Next() {
-    var id, age int
-    var username string
-    err = selDB.Scan(&id, &username, &age)
-    if err != nil {
+  nId := strings.TrimPrefix(r.URL.Path, "/users/")
+  var user User
+  switch r.Method {
+    case "GET":
+      selDB, err := db.Query("SELECT * FROM users WHERE id=?",nId)
+      if err != nil {
         panic(err.Error())
-    }
-    user.Id = id
-    user.Username = username
-    user.Age = age
+      }
+      for selDB.Next() {
+        var id, age int
+        var username string
+        err = selDB.Scan(&id, &username, &age)
+        if err != nil {
+            panic(err.Error())
+        }
+        user.Id = id
+        user.Username = username
+        user.Age = age
+      }
+      s, err := json.Marshal(user)
+      if err != nil {
+        panic(err)
+      }
+      w.Header().Set("Content-Type", "application/json")
+      w.Write(s)
+    case "POST":
+      err := json.NewDecoder(r.Body).Decode(&user)
+      insForm, err := db.Prepare("UPDATE users SET username=?, age=? WHERE id=?")
+      if err != nil {
+          panic(err.Error())
+      }
+      insForm.Exec(user.Username, user.Age, nId)
+      log.Println("UPDATE: Username: " + user.Username + " | Age: " + strconv.Itoa(user.Age) + " | Id: " + nId)
+      w.Header().Add("Content-Type", "application/json")
+      w.WriteHeader(http.StatusNoContent)
+    case "DELETE":
+      insForm, err := db.Prepare("DELETE FROM users WHERE id=?")
+      if err != nil {
+          panic(err.Error())
+      }
+      insForm.Exec(nId)
+      log.Println("DELETE: Id: " + nId)
+      w.Header().Add("Content-Type", "application/json")
+      w.WriteHeader(http.StatusNoContent)
   }
-
-  s, err := json.Marshal(user)
-  if err != nil {
-    panic(err)
-  }
-  w.Header().Set("Content-Type", "application/json")
-  w.Write(s)
 }
 
 func Store(w http.ResponseWriter, r *http.Request) {
@@ -134,35 +155,15 @@ func Store(w http.ResponseWriter, r *http.Request) {
   w.WriteHeader(http.StatusCreated)
 }
 
-func Update(w http.ResponseWriter, r *http.Request) {
-  db := dbConn()
-  defer db.Close()
-  // todo should this be PATCH?
-  if r.Method == "POST" {
-    var user User
-    err := json.NewDecoder(r.Body).Decode(&user)
-    insForm, err := db.Prepare("UPDATE users SET username=?, age=? WHERE id=?")
-    if err != nil {
-        panic(err.Error())
-    }
-    insForm.Exec(user.Username, user.Age, user.Id)
-    log.Println("UPDATE: Username: " + user.Username + " | Age: " + strconv.Itoa(user.Age) + " | Id: " + strconv.Itoa(user.Id))
-  }
-  w.Header().Add("Content-Type", "application/json")
-  w.WriteHeader(http.StatusNoContent)
-}
-
 func main() {
-  // todo CRUD操作を書く
   // todo DBのconfigを環境変数から(ソースコードにベタガキはやめる)
   fileServer := http.FileServer(http.Dir("./static"))
   http.Handle("/", fileServer)
   http.HandleFunc("/form", formHandler)
   http.HandleFunc("/hello", helloHandler)
   http.HandleFunc("/users", Index)
-  http.HandleFunc("/show", Show)
+  http.HandleFunc("/users/", UserHandler)
   http.HandleFunc("/store", Store)
-  http.HandleFunc("/update", Update)
 
   fmt.Printf("Starting server at port 8080\n")
   if err := http.ListenAndServe(":8080", nil); err != nil {
