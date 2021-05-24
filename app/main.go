@@ -157,6 +157,8 @@ func Store(w http.ResponseWriter, r *http.Request) {
 
 func main() {
   // todo DBのconfigを環境変数から(ソースコードにベタガキはやめる)
+  // todo more specific error handling
+  // todo package db access methods
   fileServer := http.FileServer(http.Dir("./static"))
   http.Handle("/", fileServer)
   http.HandleFunc("/form", formHandler)
