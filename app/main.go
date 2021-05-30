@@ -1,6 +1,7 @@
 package main
 
 import (
+  "os"
   "fmt"
   "log"
   "net/http"
@@ -46,11 +47,12 @@ type User struct {
 }
 
 func dbConn() (db *sql.DB) {
-  dbDriver := "mysql"
-  dbUser := "db_user"
-  dbPass := "example"
-  dbHost := "tcp(db:3306)"
-  dbName := "sample"
+  //todo get from env_variables
+  dbDriver := os.Getenv("DB_DRIVER")
+  dbUser := os.Getenv("DB_USER")
+  dbPass := os.Getenv("DB_PASSWORD")
+  dbHost := os.Getenv("DB_PROTO") + "(" + os.Getenv("DB_HOST") + ":" + os.Getenv("DB_PORT") + ")"
+  dbName := os.Getenv("DB_NAME")
   db, err := sql.Open(dbDriver, dbUser+":"+dbPass+"@"+dbHost+"/"+dbName)
   if err != nil {
     panic(err.Error())
@@ -94,7 +96,7 @@ func UserHandler(w http.ResponseWriter, r *http.Request){
   nId := strings.TrimPrefix(r.URL.Path, "/users/")
   var user User
   switch r.Method {
-    case "GET":
+    case http.MethodGet:
       selDB, err := db.Query("SELECT * FROM users WHERE id=?",nId)
       if err != nil {
         panic(err.Error())
@@ -116,7 +118,7 @@ func UserHandler(w http.ResponseWriter, r *http.Request){
       }
       w.Header().Set("Content-Type", "application/json")
       w.Write(s)
-    case "POST":
+    case http.MethodPost:
       err := json.NewDecoder(r.Body).Decode(&user)
       insForm, err := db.Prepare("UPDATE users SET username=?, age=? WHERE id=?")
       if err != nil {
@@ -126,7 +128,7 @@ func UserHandler(w http.ResponseWriter, r *http.Request){
       log.Println("UPDATE: Username: " + user.Username + " | Age: " + strconv.Itoa(user.Age) + " | Id: " + nId)
       w.Header().Add("Content-Type", "application/json")
       w.WriteHeader(http.StatusNoContent)
-    case "DELETE":
+    case http.MethodDelete:
       insForm, err := db.Prepare("DELETE FROM users WHERE id=?")
       if err != nil {
           panic(err.Error())
@@ -156,7 +158,6 @@ func Store(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-  // todo DBのconfigを環境変数から(ソースコードにベタガキはやめる)
   // todo more specific error handling
   // todo package db access methods
   fileServer := http.FileServer(http.Dir("./static"))

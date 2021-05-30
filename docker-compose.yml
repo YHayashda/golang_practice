@@ -4,6 +4,14 @@ services:
     build: ./app
     container_name: app
     tty: true
+    environment:
+      DB_DRIVER: mysql
+      DB_USER: db_user
+      DB_PASSWORD: example
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_PROTO: tcp
+      DB_NAME: sample
     ports:
       - "8080:8080"
     volumes:
