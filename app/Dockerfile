@@ -1,9 +1,35 @@
-FROM golang:latest
+FROM golang:1.15.7-alpine as dev
 
-RUN mkdir /go/src/work
+ENV ROOT=/go/src/work
+ENV CGO_ENABLED 0
+WORKDIR ${ROOT}
 
-WORKDIR /go/src/work
+RUN apk update && apk add git
+COPY go.mod go.sum ./
+RUN go mod download
+EXPOSE 8080
 
-RUN go install -tags 'mysql' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+CMD ["go", "run", "main.go"]
 
-ADD . /go/src/work
+
+FROM golang:1.15.7-alpine as builder
+
+ENV ROOT=/go/src/app
+WORKDIR ${ROOT}
+
+RUN apk update && apk add git
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . ${ROOT}
+RUN CGO_ENABLED=0 GOOS=linux go build -o $ROOT/binary
+
+
+FROM scratch as prod
+
+ENV ROOT=/go/src/app
+WORKDIR ${ROOT}
+COPY --from=builder ${ROOT}/binary ${ROOT}
+
+EXPOSE 8080
+CMD ["/go/src/app/binary"]
