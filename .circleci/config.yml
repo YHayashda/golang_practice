@@ -1,8 +1,13 @@
-  version: 2.1
-  jobs:
+  version: 2.
+  orbs:
+    aws-ecr: circleci/aws-ecr@0.0.2
+    aws-ecs: circleci/aws-ecs@0.0.10
+  workflows:
     build:
-      docker:
-        - image: circleci/node:4.8.2 # ジョブのコマンドが実行されるプライマリ コンテナ
-      steps:
-        - checkout # プロジェクト ディレクトリ内のコードをチェック アウトします
-        - run: echo "hello world" # `echo` コマンドを実行します
+      jobs:
+        - aws-ecr/build_and_push_image:
+            account-url: "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}
+            .amazonaws.com"
+            repo: "${AWS_RESOURCE_NAME_PREFIX}"
+            region: ${AWS_DEFAULT_REGION}
+            tag: "${CIRCLE_SHA1}"
